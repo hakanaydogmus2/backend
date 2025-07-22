@@ -1,13 +1,16 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const { z } = require('zod');
+const crypto = require('crypto');
 
 const userSchema = new mongoose.Schema({
     username: { type: String, unique: true },
     email: { type: String, unique: true },
     password: { type: String },
     role: { type: String, enum: ['user', 'admin'], default: 'user' },
-    refreshToken: { type: String, default: null }
+    refreshToken: { type: String, default: null },
+    resetPasswordToken: { type: String, default: null },
+    resetPasswordExpires: { type: Date, default: null }
 });
 
 // Zod schema for validation
@@ -16,7 +19,9 @@ const userZodSchema = z.object({
     email: z.email(),
     password: z.string().min(6),
     role: z.enum(['user', 'admin']).optional(),
-    refreshToken: z.string().nullable().optional()
+    refreshToken: z.string().nullable().optional(),
+    resetPasswordToken: z.string().nullable().optional(),
+    resetPasswordExpires: z.date().nullable().optional()
 });
 
 // Example validation function
@@ -35,6 +40,15 @@ userSchema.pre('save', async function(next) {
 
 userSchema.methods.comparePassword = function(candidatePassword) {
     return bcrypt.compare(candidatePassword, this.password);
+};
+
+userSchema.methods.generateResetToken = function () {
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    
+    this.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+    this.resetPasswordExpires = Date.now() + 3600000; // 1 saat geçerli
+
+    return resetToken;
 };
 
 const User = mongoose.model('User', userSchema);
