@@ -6,7 +6,8 @@ const userSchema = new mongoose.Schema({
     username: { type: String, unique: true },
     email: { type: String, unique: true },
     password: { type: String },
-    role: { type: String, enum: ['user', 'admin'], default: 'user' }
+    role: { type: String, enum: ['user', 'admin'], default: 'user' },
+    refreshToken: { type: String, default: null }
 });
 
 // Zod schema for validation
@@ -14,7 +15,8 @@ const userZodSchema = z.object({
     username: z.string().min(3),
     email: z.email(),
     password: z.string().min(6),
-    role: z.enum(['user', 'admin']).optional()
+    role: z.enum(['user', 'admin']).optional(),
+    refreshToken: z.string().nullable().optional()
 });
 
 // Example validation function

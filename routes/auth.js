@@ -1,8 +1,11 @@
 const express = require('express');
 const { User, validateUser } = require('../models/User');
 const bcrypt = require('bcrypt');
-
 const router = express.Router();
+const { generateAccessToken, generateRefreshToken } = require('../utils/jwtHelper');
+const jwt = require('jsonwebtoken');
+
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 
 router.post('/register', async(req, res) => {
     const validation = validateUser(req.body);
@@ -17,7 +20,6 @@ router.post('/register', async(req, res) => {
         if (existingUser) {
             return res.status(400).json({ message: 'Email already in use' });
         }
-
 
         const newUser = new User({
             username,
@@ -44,14 +46,75 @@ router.post('/login', async(req, res) => {
         }
 
         const validPassword = await user.comparePassword(password);
-        console.log('Valid Password:', validPassword);
+        
         if (!validPassword) {
             return res.status(400).json({ message: 'Invalid email or password' });
         }
 
-        res.status(200).json({ message: 'Login successful', user: { id: user._id, username: user.username, email: user.email, role: user.role } });
+        const accessToken = generateAccessToken(user);
+        const refreshToken = generateRefreshToken(user);
+
+        user.refreshToken = refreshToken;
+        await user.save();
+
+        res.status(200).json(
+            { 
+                message: 'Login successful',
+                accessToken,
+                refreshToken,
+            });
+
     } catch (err) {
         res.status(500).json({ message: 'Server error', error: err.message });
     }
 });
+
+router.post('/refresh-token', async(req, res) => {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+        return res.status(401).json({ message: 'Refresh token required' });
+    }
+    console.log('Received refresh token:', refreshToken);
+    
+    try {
+
+        const payload = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
+        console.log('Decoded payload:', payload);
+        const user = await User.findById(payload.id);
+
+        //console.log('User found:', user);
+
+        console.log(user.refreshToken===refreshToken);
+        if (!user || user.refreshToken !== refreshToken) {
+            return res.status(403).json({ message: 'Invalid refresh token' });
+        }
+
+        const newAccessToken = generateAccessToken(user);
+        res.status(200).json({ accessToken: newAccessToken });
+
+    } catch (err) {
+        res.status(403).json({ message: 'Invalid refresh token', error: err.message });
+    }
+});
+
+
+router.post('/logout', async(req, res) => {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+        return res.status(400).json({ message: 'Refresh token required' });
+    }
+    try {
+        const user = await User.findOne({ refreshToken });
+        if (!user) {
+            return res.status(400).json({ message: 'Invalid refresh token' });
+        }
+        user.refreshToken = null;
+        await user.save();
+        res.status(200).json({ message: 'Logout successful' });
+    } catch (err) {
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
+});
+
 module.exports = router;
