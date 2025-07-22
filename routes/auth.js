@@ -80,12 +80,8 @@ router.post('/refresh-token', async(req, res) => {
     try {
 
         const payload = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
-        console.log('Decoded payload:', payload);
         const user = await User.findById(payload.id);
 
-        //console.log('User found:', user);
-
-        console.log(user.refreshToken===refreshToken);
         if (!user || user.refreshToken !== refreshToken) {
             return res.status(403).json({ message: 'Invalid refresh token' });
         }
