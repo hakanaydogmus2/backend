@@ -15,7 +15,7 @@ router.post('/register', async(req, res) => {
         return res.status(400).json({ errors: validation.error.errors });
     }
 
-    const { username, email, password, role } = validation.data;
+    const { username, email, password } = validation.data;
 
     try {
         const existingUser = await User.findOne({ email });
@@ -27,7 +27,7 @@ router.post('/register', async(req, res) => {
             username,
             email,
             password,
-            role: role || 'user'
+            role: 'user', // Default role
         });
 
         await newUser.save();
@@ -48,7 +48,7 @@ router.post('/login', async(req, res) => {
         }
 
         const validPassword = await user.comparePassword(password);
-        
+
         if (!validPassword) {
             return res.status(400).json({ message: 'Invalid email or password' });
         }
@@ -59,12 +59,11 @@ router.post('/login', async(req, res) => {
         user.refreshToken = refreshToken;
         await user.save();
 
-        res.status(200).json(
-            { 
-                message: 'Login successful',
-                accessToken,
-                refreshToken,
-            });
+        res.status(200).json({
+            message: 'Login successful',
+            accessToken,
+            refreshToken,
+        });
 
     } catch (err) {
         res.status(500).json({ message: 'Server error', error: err.message });
@@ -78,7 +77,7 @@ router.post('/refreshToken', async(req, res) => {
         return res.status(401).json({ message: 'Refresh token required' });
     }
     console.log('Received refresh token:', refreshToken);
-    
+
     try {
 
         const payload = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
@@ -118,7 +117,7 @@ router.post('/logout', async(req, res) => {
 
 router.post('/changePassword', async(req, res) => {
     const { email, oldPassword, newPassword } = req.body;
-    
+
     try {
         const user = await User.findOne({ email });
         if (!user) {
@@ -139,7 +138,7 @@ router.post('/changePassword', async(req, res) => {
 
 router.post('/forgotPassword', async(req, res) => {
     const { email } = req.body;
-    
+
     try {
         const user = await User.findOne({ email });
         if (!user) {
@@ -158,7 +157,7 @@ router.post('/forgotPassword', async(req, res) => {
 });
 
 
-router.get('/resetPassword/:token', async (req, res) => {
+router.get('/resetPassword/:token', async(req, res) => {
     const { token } = req.params;
 
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
@@ -180,7 +179,7 @@ router.get('/resetPassword/:token', async (req, res) => {
     `);
 });
 
-router.post('/resetPassword/:token', async (req, res) => {
+router.post('/resetPassword/:token', async(req, res) => {
     const { token } = req.params;
     const { newPassword } = req.body;
 
