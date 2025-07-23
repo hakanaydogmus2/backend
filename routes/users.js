@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { User } = require('../models/User');
+const { User, updateUserValidationSchema } = require('../models/User');
 const { authorize } = require('../middlewares/auth');
 
 
@@ -25,12 +25,27 @@ router.get('/:id', async(req, res) => {
 // TODO user should be able to update only their own data
 router.put('/:id', authorize(['user']), async(req, res) => {
     try {
+        console.log('Request body:', req.body);
+        // Kullanıcı doğrulaması
         if (req.user.id !== req.params.id) {
-            return res.status(403).json({ error: '' });
+            return res.status(403).json({ error: 'Unauthorized' });
         }
-        const updated = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
-        if (!updated) return res.status(404).json({ error: 'User not found' });
-        res.json(updated);
+
+        const user = await User.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const validation = updateUserValidationSchema.safeParse(req.body);
+        console.log('Validation result:', validation);
+
+        if (!validation.success) {
+            return res.status(400).json({ errors: validation.error.message });
+        }
+
+        user.username = req.body.username;
+        await user.save();
+        res.status(200).json({ message: 'User updated successfully' });
     } catch (err) {
         res.status(400).json({ error: err.message });
     }

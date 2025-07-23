@@ -29,6 +29,9 @@ const userZodSchema = z.object({
     isEmailVerified: z.boolean().optional()
 });
 
+const updateUserValidationSchema = z.object({
+    username: z.string().min(3)
+});
 // Example validation function
 function validateUser(data) {
     return userZodSchema.safeParse(data);
@@ -70,5 +73,6 @@ const User = mongoose.model('User', userSchema);
 module.exports = {
     User,
     validateUser,
-    userZodSchema
+    userZodSchema,
+    updateUserValidationSchema
 };
