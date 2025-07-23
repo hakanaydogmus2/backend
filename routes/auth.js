@@ -4,7 +4,7 @@ const bcrypt = require('bcrypt');
 const router = express.Router();
 const { generateAccessToken, generateRefreshToken } = require('../utils/jwtHelper');
 const jwt = require('jsonwebtoken');
-const { sendPasswordResetEmail } = require('../utils/emailHelper');
+const { sendPasswordResetEmail, sendEmailVerification } = require('../utils/emailHelper');
 const crypto = require('crypto');
 
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
@@ -32,6 +32,10 @@ router.post('/register', async(req, res) => {
 
         await newUser.save();
 
+        const verifyToken = newUser.generateEmailVerificationToken();
+        await newUser.save();
+
+        await sendEmailVerification(newUser.email, verifyToken);
         res.status(201).json({ message: 'User created successfully' });
     } catch (err) {
         res.status(500).json({ message: 'Server error', error: err.message });
@@ -44,9 +48,11 @@ router.post('/login', async(req, res) => {
     try {
         const user = await User.findOne({ email });
         if (!user) {
-            return res.status(400).json({ message: 'Invalid email or password' });
+            return res.status(400).json({ message: 'User is not registered' });
         }
-
+        if (!user.isEmailVerified) {
+            return res.status(403).json({ message: 'Email not verified' });
+        }
         const validPassword = await user.comparePassword(password);
 
         if (!validPassword) {
@@ -136,6 +142,7 @@ router.post('/changePassword', async(req, res) => {
 });
 
 
+// TODO always return 200, even if email is not found
 router.post('/forgotPassword', async(req, res) => {
     const { email } = req.body;
 
@@ -196,6 +203,25 @@ router.post('/resetPassword/:token', async(req, res) => {
         await user.save();
 
         res.status(200).json({ message: 'Password reset successful you can close the tab' });
+    } catch (err) {
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
+});
+
+router.get('/verifyEmail/:token', async(req, res) => {
+    const { token } = req.params;
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    try {
+
+        const user = await User.findOne({ emailVerificationToken: hashedToken, emailVerificationExpires: { $gt: Date.now() } }); // one week 
+        if (!user) {
+            return res.status(400).json({ message: 'Invalid or expired token' });
+        }
+        user.isEmailVerified = true;
+        user.emailVerificationToken = undefined;
+        user.emailVerificationExpires = undefined;
+        await user.save();
+        res.status(200).json({ message: 'Email verified successfully' });
     } catch (err) {
         res.status(500).json({ message: 'Server error', error: err.message });
     }
