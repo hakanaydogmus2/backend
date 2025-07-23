@@ -1,11 +1,11 @@
 const express = require('express');
 const { User, validateUser } = require('../models/User');
-const bcrypt = require('bcrypt');
 const router = express.Router();
 const { generateAccessToken, generateRefreshToken } = require('../utils/jwtHelper');
 const jwt = require('jsonwebtoken');
 const { sendPasswordResetEmail, sendEmailVerification } = require('../utils/emailHelper');
 const crypto = require('crypto');
+const { authorize } = require('../middlewares/auth');
 
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 
@@ -76,7 +76,7 @@ router.post('/login', async(req, res) => {
     }
 });
 
-router.post('/refreshToken', async(req, res) => {
+router.post('/refreshToken', authorize(['admin', 'user']), async(req, res) => {
     const { refreshToken } = req.body;
 
     if (!refreshToken) {
@@ -102,7 +102,7 @@ router.post('/refreshToken', async(req, res) => {
 });
 
 
-router.post('/logout', async(req, res) => {
+router.post('/logout', authorize(['admin', 'user']), async(req, res) => {
     const { refreshToken } = req.body;
     if (!refreshToken) {
         return res.status(400).json({ message: 'Refresh token required' });
