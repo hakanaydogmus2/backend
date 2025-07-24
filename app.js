@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
+var cors = require('cors');
 
 
 mongoose.connect(process.env.MONGO, {
@@ -21,6 +22,11 @@ var authRouter = require('./routes/auth');
 var categoriesRouter = require('./routes/categories');
 
 var app = express();
+
+app.use(cors({
+  origin: "http://localhost:3000", // Frontend'in adresi
+  credentials: true, // Eğer çerez/token gönderilecekse
+}));
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));

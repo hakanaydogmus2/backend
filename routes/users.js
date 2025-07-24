@@ -15,7 +15,15 @@ router.get('/:id', async(req, res) => {
     try {
         const user = await User.findById(req.params.id);
         if (!user) return res.status(404).json({ error: 'User not found' });
-        res.json(user);
+        // Remove sensitive fields
+        const UserDto = {
+            id: user._id,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            isEmailVerified: user.isEmailVerified
+        };
+        res.json(UserDto);
     } catch (err) {
         res.status(400).json({ error: err.message });
     }
